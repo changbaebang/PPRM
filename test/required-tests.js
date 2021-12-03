@@ -73,6 +73,7 @@ describe('required-tests', function () {
         Promise.resolve('Success').then(function(value) {
           // "Success"
           assert(value === 'Success');
+          done();
         }, function(value) {
           // not called
           done(new Error("not called"));
@@ -92,6 +93,7 @@ describe('required-tests', function () {
           assert(result.toString() === 'Error: fail');
           done();
         };
+        Promise.reject(new Error('fail')).then(resolved, rejected);
       });
     });
     describe('Promise.prototype.then', function () {
@@ -104,6 +106,7 @@ describe('required-tests', function () {
         });
         promise1.then((value) => {
           // expected output: "Success!"
+          //console.log(`passing value : ${value}`);
           assert(value === 'Success!');
           done();
         });
