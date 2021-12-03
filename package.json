@@ -1,0 +1,25 @@
+{
+  "name": "pprm",
+  "version": "1.0.0",
+  "description": "Study for Promise",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "prepublish": "node build",
+    "test-required": "mocha test/required-tests.js --timeout 200 --slow 999999"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/changbaebang/PPRM.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/changbaebang/PPRM/issues"
+  },
+  "homepage": "https://github.com/changbaebang/PPRM#readme",
+  "devDependencies": {
+    "better-assert": "^1.0.2",
+    "mocha": "^9.1.3"
+  }
+}
