@@ -78,6 +78,30 @@ describe('required-tests', function () {
           done(new Error("not called"));
         });
       });
+      it('Resolving an array', function(done) {
+        const resolves = [1,2,3];
+        var p = Promise.resolve([1,2,3]);
+        p.then(function(v) {
+          assert(v.length === resolves.length);
+          assert(v.every((val, index) => val === resolves[index]));
+          done();
+        });
+      });
+      it('Resolving another Promise', function(done) {
+        var original = Promise.resolve(33);
+        var cast = Promise.resolve(original);
+        var checkOrder = 0;
+        cast.then(function(value) {
+          console.log('value: ' + value);
+          //assert(v === 33);
+          //assert(checkOrder !== 0);
+        });
+        checkOrder++
+        console.log('original === cast ? ' + (original === cast));
+        // logs, in order:
+        // original === cast ? true
+        // value: 33
+      });
     });
     describe('Promise.reject', function () {
       it('type of Promise.reject', function () {

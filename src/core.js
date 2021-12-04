@@ -33,37 +33,6 @@ let promise = null;
   return promise;
 }
 
-/**
- * excuteCallBack
- * @param {any} self - primose that excute callback
- */
- excuteCallBack = (self) => {
-  if(self instanceof Promise === false) {
-    console.log(`excuteCallBack call is not validate : invalid self`);
-    return;
-  }
-
-  if(self.status === STATUS.PENDING) {
-    //console.log(`excuteCallBack call is not validate : ${this.status}`);
-  } else if(self.status === STATUS.FULFILLED) {
-    if(self.resolutionFunc === null) {
-      //console.log(`excuteCallBack call is not validate : ${this.status}`);
-    } else {
-      self.resolutionFunc(this.value);
-      self.resolutionFunc = null;
-      self.rejectionFunc = null;
-    }
-  } else {  // STATUS.REJECTED
-    if(self.rejectionFunc === null) {
-      //console.log(`excuteCallBack call is not validate : ${this.status}`);
-    } else {
-      self.rejectionFunc(this.value);
-      self.resolutionFunc = null;
-      self.rejectionFunc = null;
-    }
-  }
-}
-
 
 // Promise core
 const Promise = class {
@@ -92,7 +61,7 @@ const Promise = class {
     let self = getPromise(this);
     self.status = STATUS.FULFILLED;
     self.value = value;
-    excuteCallBack(self);
+    self.excuteCallBack();
     return self;
   }
 
@@ -106,7 +75,7 @@ const Promise = class {
     let self = getPromise(this);
     self.status = STATUS.REJECTED;
     self.value = reason;
-    excuteCallBack(self);
+    self.excuteCallBack();
     return self;
   }
 
@@ -127,12 +96,37 @@ const Promise = class {
     }
     else if(this.status === STATUS.FULFILLED) {
       // console.log(`FULFILLED with then ${this.value}`);
-      excuteCallBack(this);
+      this.excuteCallBack();
       return this;
     } else { // STATUS.REJECTED
       // console.log(`REJECTED with then ${this.value}`);
-      excuteCallBack(this);
+      this.excuteCallBack();
       return this;
+    }
+  }
+
+/**
+ * excuteCallBack
+ */
+  excuteCallBack = () => {
+    if(this.status === STATUS.PENDING) {
+      //console.log(`excuteCallBack call is not validate : ${this.status}`);
+    } else if(this.status === STATUS.FULFILLED) {
+      if(this.resolutionFunc === null) {
+        //console.log(`excuteCallBack call is not validate : ${this.status}`);
+      } else {
+        this.resolutionFunc(this.value);
+        this.resolutionFunc = null;
+        this.rejectionFunc = null;
+      }
+    } else {  // STATUS.REJECTED
+      if(this.rejectionFunc === null) {
+        //console.log(`excuteCallBack call is not validate : ${this.status}`);
+      } else {
+        this.rejectionFunc(this.value);
+        this.resolutionFunc = null;
+        this.rejectionFunc = null;
+      }
     }
   }
 }
