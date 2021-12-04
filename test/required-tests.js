@@ -33,10 +33,9 @@ describe('required-tests', function () {
         const promise1 = new Promise((resolve, reject) => {
           setTimeout(() => {
             resolve('foo');
-          }, 300);
+          }, 1);
         });
         promise1.then((value) => {
-          //console.log(value);
           assert(value === 'foo');
           // expected output: "foo"
           done();

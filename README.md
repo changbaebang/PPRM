@@ -3,9 +3,8 @@ promise study
 
 # Purpose
 * How to run async.
-* OOP ??
-  * Resue?
-  * validation for Object?
+* Private method => out of class
+* Public & static method => in class
   
 # Specs - test
 * new Promise(executor)
@@ -21,7 +20,8 @@ promise study
 N/A
 
 ## for testing
-* mocha?
+* mocha
+* TC from documents' samples
 
 # ETC
 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise

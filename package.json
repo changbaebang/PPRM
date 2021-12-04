@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "prepublish": "node build",
-    "test-required": "mocha test/required-tests.js --timeout 200 --slow 999999"
+    "test-required": "mocha test/required-tests.js --timeout 1000 --slow 999999"
   },
   "repository": {
     "type": "git",
