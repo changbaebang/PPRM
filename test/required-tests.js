@@ -36,8 +36,8 @@ describe('required-tests', function () {
           }, 1);
         });
         promise1.then((value) => {
-          assert(value === 'foo');
           // expected output: "foo"
+          assert(value === 'foo');
           done();
         });
         // expected output: [object Promise]
@@ -92,15 +92,67 @@ describe('required-tests', function () {
         var cast = Promise.resolve(original);
         var checkOrder = 0;
         cast.then(function(value) {
-          console.log('value: ' + value);
-          //assert(v === 33);
-          //assert(checkOrder !== 0);
+          assert(value === 33);
+          assert(checkOrder === 1);
+          done();
         });
-        checkOrder++
-        console.log('original === cast ? ' + (original === cast));
+        checkOrder++;
+        assert(original === cast);
         // logs, in order:
         // original === cast ? true
         // value: 33
+      });
+      it('Resolving thenables and throwing Errors - 1', function(done) {
+        // Resolving a thenable object
+        var p1 = Promise.resolve({
+          then: function(onFulfill, onReject) {
+            onFulfill('fulfilled!');
+          }
+        });
+        assert(p1 instanceof Promise === true);
+        p1.then(function(v) {
+            // "fulfilled!"
+            assert(v === 'fulfilled!');
+            done();
+          }, function(e) {
+            // not called
+            done(new Error("not called"));
+        });
+      });
+      it('Resolving thenables and throwing Errors - 2', function(done) {
+        // Thenable throws before callback
+        // Promise rejects
+        var thenable = { then: function(resolve) {
+          throw new TypeError('Throwing');
+          resolve('Resolving');
+        }};
+
+        var p2 = Promise.resolve(thenable);
+        p2.then(function(v) {
+          // not called
+          done(new Error("not called"));
+        }, function(e) {
+          assert(e.toString() === 'TypeError: Throwing');
+          done();
+        });
+      });
+      it('Resolving thenables and throwing Errors - 3', function(done) {
+        // Thenable throws after callback
+        // Promise resolves
+        var thenable = { then: function(resolve) {
+          resolve('Resolving');
+          throw new TypeError('Throwing');
+        }};
+
+        var p3 = Promise.resolve(thenable);
+        p3.then(function(v) {
+          // "Resolving"
+          assert(v === 'Resolving');
+          done();
+        }, function(e) {
+          // not called
+          done(new Error("not called"));
+        });
       });
     });
     describe('Promise.reject', function () {
@@ -118,6 +170,14 @@ describe('required-tests', function () {
         };
         Promise.reject(new Error('fail')).then(resolved, rejected);
       });
+      it('Using the static Promise.reject() method', function(done) {
+        Promise.reject(new Error('fail')).then(function() {
+          // not called
+        }, function(error) {
+          assert(error.toString() === 'Error: fail');
+          done();
+        });
+      });
     });
     describe('Promise.prototype.then', function () {
       it('type of Promise.prototype.then', function () {
@@ -133,6 +193,72 @@ describe('required-tests', function () {
           assert(value === 'Success!');
           done();
         });
+      });
+      it('Using the then method - 1', function(done) {
+        var p1 = new Promise((resolve, reject) => {
+          resolve('Success!');
+        });
+        p1.then(value => {
+          assert(value === 'Success!');
+          done();
+        }, reason => {
+          done(new Error("not called"));
+        });
+      });
+      it('Using the then method - 2', function(done) {
+        var p1 = new Promise((resolve, reject) => {
+          reject(new Error("Error!"));
+        });
+        p1.then(value => {
+          done(new Error("not called"));
+        }, reason => {
+          assert(reason.toString() === 'Error: Error!');
+          done();
+        });
+      });
+      it('Chaining', function(done) {
+        Promise.resolve('foo')
+          // 1. Receive "foo", concatenate "bar" to it, and resolve that to the next then
+          .then(function(string) {
+            console.log(`Receive "foo" : ${string}`);
+            return new Promise(function(resolve, reject) {
+              setTimeout(function() {
+                string += 'bar';
+                console.log(`concatenate "bar" : ${string}`);
+                resolve(string);
+              }, 1);
+            });
+          })
+          // 2. receive "foobar", register a callback function to work on that string
+          // and print it to the console, but not before returning the unworked on
+          // string to the next then
+          .then(function(string) {
+            console.log(`receive "foobar" "bar" : ${string}`);
+            setTimeout(function() {
+              string += 'baz';
+              console.log(`register a callback : ${string}`);
+              console.log(string); // foobarbaz
+            }, 1)
+            return string;
+          })
+          // 3. print helpful messages about how the code in this section will be run
+          // before the string is actually processed by the mocked asynchronous code in the
+          // previous then block.
+          .then(function(string) {
+            console.log(`print helpful messages : ${string}`);
+            console.log("Last Then:  oops... didn't bother to instantiate and return " +
+                        "a promise in the prior then so the sequence may be a bit " +
+                        "surprising");
+
+            // Note that `string` will not have the 'baz' bit of it at this point. This
+            // is because we mocked that to happen asynchronously with a setTimeout function
+            console.log(string); // foobar
+          });
+
+        // logs, in order:
+        // Last Then: oops... didn't bother to instantiate and return a promise in the prior then so the sequence may be a bit surprising
+        // foobar
+        // foobarbaz
       });
     });
     describe('Promise.prototype.catch', function () {

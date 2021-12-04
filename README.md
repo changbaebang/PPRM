@@ -2,9 +2,9 @@
 promise study
 
 # Purpose
-* How to run async.
-* Private method => out of class
-* Public & static method => in class
+* How to run async. - with timer??
+
+
   
 # Specs - test
 * new Promise(executor)
@@ -26,3 +26,4 @@ N/A
 # ETC
 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
 https://caniuse.com/?search=es6
+https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Functions/Arrow_functions

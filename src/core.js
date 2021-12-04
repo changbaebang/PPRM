@@ -17,22 +17,6 @@ const STATUS = Object.freeze({
   REJECTED: 2
 });
 
-/**
- * Get Context
- * @param {any} self - function context
- * @return {Promise} if function context, new Promise / if not, current context
- */
-const getPromise = (self) => {
-let promise = null;
-  if(self instanceof Promise) { // call from excutor of constructor
-    promise = self;
-  } else { // call as static function
-    const defaultExcutor = (resolve, reject) => {};
-    promise = new Promise(defaultExcutor);
-  }
-  return promise;
-}
-
 
 // Promise core
 const Promise = class {
@@ -47,7 +31,15 @@ const Promise = class {
     this.value = null;
     this.resolutionFunc = null; // call on resolved
     this.rejectionFunc = null; // call on rejected
-    excutor(Promise.resolve.bind(this), Promise.reject.bind(this));
+    try {
+      excutor(this._resolve.bind(this), this._reject.bind(this));
+    } catch (e) {
+      //console.log(`excutor have exception ${e.toString()}`);
+      //console.log(`Promise ${this._toString()}`);
+      if(this.status !== STATUS.FULFILLED) {
+        this._reject(e);
+      }
+    }
   }
 
   
@@ -56,13 +48,19 @@ const Promise = class {
    * @param {any} value - Argument to be resolved by this Promise. Can also be a Promise or a thenable to resolve.
    * @return {Promise} A Promise that is resolved with the given value, or the promise passed as value, if the value was a promise object.
    */
-  static resolve(value) {
+  static resolve = (value) => {
     //console.log(`resolve : ${value}`);
-    let self = getPromise(this);
-    self.status = STATUS.FULFILLED;
-    self.value = value;
-    self.excuteCallBack();
-    return self;
+    if(Promise._isPromiseObject(value) === true) {
+      //console.log('cast object ' + value._toString());
+      return value;
+    }
+    if(Promise._isThenable(value) === true) {
+      //console.log(`thenable : ${typeof value['then']} ${value['then']} `);
+      return new Promise(value['then']);
+    }
+    let promise = new Promise(Promise._defaultExcutor);
+    promise._resolve(value);
+    return promise;
   }
 
   /**
@@ -70,13 +68,11 @@ const Promise = class {
    * @param {any} reason - Reason why this Promise rejected.
    * @return {Promise} A Promise that is rejected with the given reason.
    */
-  static reject(reason) {
-    //console.log(`reject : ${value}`);
-    let self = getPromise(this);
-    self.status = STATUS.REJECTED;
-    self.value = reason;
-    self.excuteCallBack();
-    return self;
+  static reject = (reason) => {
+    //console.log(`reject : ${reason}`);
+    let _promise = new Promise(Promise._defaultExcutor);
+    _promise._reject(reason);
+    return _promise;
   }
 
   /**
@@ -86,34 +82,77 @@ const Promise = class {
    * @return {any} Once a Promise is fulfilled or rejected, the respective handler function (onFulfilled or onRejected) will be called asynchronously (scheduled in the current thread loop)
    */
   then(onFulfilled, onRejected) {
-    //console.log(`then : ${onFulfilled} / ${onRejected}`);
+    console.log(`then : ${onFulfilled} / ${onRejected}`);
     this.resolutionFunc = onFulfilled;
     this.rejectionFunc = onRejected;
 
     if(this.status === STATUS.PENDING) {
-      // console.log('PENDING with then');
+      console.log('PENDING with then');
       return this;
     }
     else if(this.status === STATUS.FULFILLED) {
-      // console.log(`FULFILLED with then ${this.value}`);
-      this.excuteCallBack();
+      console.log(`then FULFILLED with then ${this.value}`);
+      this._requestCallback();
       return this;
     } else { // STATUS.REJECTED
-      // console.log(`REJECTED with then ${this.value}`);
-      this.excuteCallBack();
+      //console.log(`then REJECTED with then ${this.value}`);
+      this._requestCallback();
       return this;
     }
   }
 
-/**
- * excuteCallBack
- */
-  excuteCallBack = () => {
+  // privates
+  static _defaultExcutor = () => {};
+  static _asyncInterval = 1000;
+  static _isPromiseObject = (obj) => obj instanceof Promise
+  static _isThenable = (obj) => {
+    return typeof obj === 'object' && obj['then'] && typeof obj['then'] === `function`;
+  }
+
+  _toString() {
+    return '[Promise] status : ' + this.status + ' value : ' + this.value;
+  }
+  /**
+   * The resove method for excuter of Constructor
+   * @param {any} value - Argument to be resolved by this Promise. Can also be a Promise or a thenable to resolve.
+   */
+  _resolve(value) {
+    //console.log(`_resolve : ${value}`);
+    this.status = STATUS.FULFILLED;
+    this.value = value;
+    this._requestCallback();
+  }
+
+  /**
+   * The reject method for excuter of Constructor
+   * @param {any} reason - Reason why this Promise rejected.
+   */
+  _reject(reason) {
+    //console.log(`_reject : ${reason}`);
+    this.status = STATUS.REJECTED;
+    this.value = reason;
+    this._requestCallback();
+  }
+  /**
+   * The trigger for call on resolved or call on rejected
+   */
+  _requestCallback() {
+    //console.log(`_requestCallback is called`);
+    setTimeout(function() {
+      this._excuteCallBack();
+    }.bind(this), Promise._asyncInterval);
+  }
+
+  /**
+   * call on resolved or call on rejected
+   */
+  _excuteCallBack() {
+    //console.log(`_excuteCallBack is called ${this.status}`);
     if(this.status === STATUS.PENDING) {
-      //console.log(`excuteCallBack call is not validate : ${this.status}`);
+      //console.log(`_excuteCallBack call is not validate : ${this.status}`);
     } else if(this.status === STATUS.FULFILLED) {
       if(this.resolutionFunc === null) {
-        //console.log(`excuteCallBack call is not validate : ${this.status}`);
+        //console.log(`_excuteCallBack call is not validate : ${this.status}`);
       } else {
         this.resolutionFunc(this.value);
         this.resolutionFunc = null;
@@ -121,7 +160,7 @@ const Promise = class {
       }
     } else {  // STATUS.REJECTED
       if(this.rejectionFunc === null) {
-        //console.log(`excuteCallBack call is not validate : ${this.status}`);
+        //console.log(`_excuteCallBack call is not validate : ${this.status}`);
       } else {
         this.rejectionFunc(this.value);
         this.resolutionFunc = null;
