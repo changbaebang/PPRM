@@ -36,6 +36,7 @@ const typeErrorValidator = validatorBuilderWithTypeofNameAndPrototypeName(FUNCTI
 const isObject = isSomething(objectVaildator);
 const isFunction = isSomething(functionValidator);
 const isTypeError = isSomething(typeErrorValidator);
+const isDebug = DEBUG;
 const log = DEBUG == true ? console.log : () => {};
 const getRandName = DEBUG == true ? () => Math.random().toString(36).substr(2,11) : () => {}; // for debug
 
@@ -43,6 +44,7 @@ module.exports = {
   isObject,
   isFunction,
   isTypeError,
+  isDebug,
   log,
   getRandName,
 };

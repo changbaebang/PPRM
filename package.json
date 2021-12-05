@@ -4,9 +4,14 @@
   "description": "Study for Promise",
   "main": "index.js",
   "debug" : false,
+  "promise" : {
+    "interval" : 1000
+  },
   "scripts": {
     "prepublish": "node build",
-    "test-required": "mocha test/required-tests.js --timeout 30000 --slow 999999"
+    "test-required": "mocha test/required-tests.js --timeout 30000 --slow 999999",
+    "test-single": "mocha test/single-test.js --timeout 30000 --slow 999999"
+
   },
   "repository": {
     "type": "git",

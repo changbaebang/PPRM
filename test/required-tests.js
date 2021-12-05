@@ -189,7 +189,6 @@ describe('required-tests', function () {
         });
         promise1.then((value) => {
           // expected output: "Success!"
-          //console.log(`passing value : ${value}`);
           assert(value === 'Success!');
           done();
         });
@@ -223,7 +222,6 @@ describe('required-tests', function () {
           assert(checkSequence !== 0);
           done();
         }, reason => {
-          console.log('error')
           done(new Error("not called"));
         });
         checkSequence++;
@@ -248,7 +246,92 @@ describe('required-tests', function () {
         });
         checkSequence++;
       });
-      it('Async', function(done) {
+      it('small chain - 2', function(done) {
+        let checkSequence = 0;
+        const p1 = new Promise((resolve, reject) => {resolve(1)});
+        const p2 = p1.then(value => {
+          assert(checkSequence !== 0);
+          assert(value === 1);
+          checkSequence++;
+          return 2;
+        }, reason => {
+          done(new Error("not called"));
+        });
+        const p3 = p2.then(value => {
+          assert(checkSequence !== 1);
+          assert(value === 2);
+          done();
+        }, reason => {
+          done(new Error("not called"));
+        });
+        checkSequence++;
+      });
+      it('small chain - 3', function(done) {
+        let checkSequence = 0;
+        const p1 = new Promise((resolve, reject) => {
+          resolve(1);
+        });
+        const p2 = p1.then(value => {
+          assert(checkSequence !== 0);
+          assert(value === 1);
+          checkSequence++;
+        }, reason => {
+          done(new Error("not called"));
+        });
+        const p3 = p2.then(value => {
+          assert(checkSequence !== 1);
+          assert(value === undefined);
+        }, reason => {
+          done(new Error("not called"));
+        });
+        p3.then(value => {
+          assert(checkSequence !== 1);
+          assert(value === undefined);
+          done();
+        }, reason => {
+          done(new Error("not called"));
+        });
+        checkSequence++;
+      });
+      it('small chain - 4', function(done) {
+        let checkSequence = 0;
+        const p1 = new Promise((resolve, reject) => {
+          resolve(1);
+        });
+        const p2 = p1.then(value => {
+          assert(checkSequence !== 0);
+          assert(value === 1);
+          checkSequence++;
+        }, reason => {
+          done(new Error("not called"));
+        });
+        const p3 = p2.then(value => {
+          assert(checkSequence !== 1);
+          assert(value === undefined);
+          checkSequence++;
+          return new Error('Test');
+        }, reason => {
+          done(new Error("not called"));
+        });
+        const p4 = p3.then(value => {
+          assert(checkSequence !== 2);
+          assert(value.toString() === 'Error: Test');
+          checkSequence++;
+          throw new Error('Test');
+          return 2;
+        }, reason => {
+          done(new Error("not called"));
+        });
+        p4.then(value => {
+          done(new Error("not called"));
+        }, reason => {
+          assert(checkSequence !== 3);
+          assert(reason.toString() === 'Error: Test');
+          done();
+        });
+        checkSequence++;
+      });
+      it('Async - 1', function(done) {
         let checkSequence = 0;
         const p1 = new Promise((resolve, reject) => {
           setTimeout(resolve, 100);
@@ -265,7 +348,22 @@ describe('required-tests', function () {
         //false
         //resolve
       });
-      it('Chaining', function(done) {
+      it('Async - 2', function(done) {
+        const p1 = new Promise((resolve, reject) => {
+          setTimeout(reject, 100);
+          setTimeout(resolve, 1000);
+        });
+        const p2 = p1.then(value => {
+          console.log('good')
+          done(new Error("not called"));
+        }, reason => {
+          done();      
+        });
+        assert(p1 !== p2)
+        //false
+        //resolve
+      });
+      /*it('Chaining', function(done) {
         Promise.resolve('foo')
           // 1. Receive "foo", concatenate "bar" to it, and resolve that to the next then
           .then(function(string) {
@@ -308,7 +406,7 @@ describe('required-tests', function () {
         // Last Then: oops... didn't bother to instantiate and return a promise in the prior then so the sequence may be a bit surprising
         // foobar
         // foobarbaz
-      });
+      });*/
     });
     describe('Promise.prototype.catch', function () {
       it('type of Promise.prototype.catch', function () {
