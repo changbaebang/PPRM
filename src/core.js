@@ -105,6 +105,7 @@ const Promise = class {
     this.rejectionFunc = onRejected;
     const next = Promise._create();
     this.nextPromise = next;
+    log(`then(${this._toString()}) : current : ${this._toString()} nextPromise : ${this.nextPromise._toString()}`);
 
     if(this.status === Promise.STATUS.PENDING) {
       log(`then(${this._toString()}) : PENDING`);
@@ -113,7 +114,7 @@ const Promise = class {
       log(`then(${this._toString()}) : FULFILLED with ${this.value}`);
       this._requestCallback();
     } else { // Promise.STATUS.REJECTED
-      log(`then(${this._toString()}) : REJECTED`);
+      log(`then(${this._toString()}) : REJECTED ${this.value}`);
       this._requestCallback();
     }
     return next;
@@ -233,7 +234,21 @@ const Promise = class {
         try {
           result = this.resolutionFunc(this.value);
           if(this.nextPromise) {
-            this.nextPromise._resolve(result);
+            log(`_excuteCallBack - current : ${this._toString()} nextPromise : ${this.nextPromise._toString()}`);
+            if(Promise._isPromiseObject(result) === true) {
+              if(result.status === Promise.STATUS.PENDING) {
+                // re-link result and nextPromise
+                result.resolutionFunc = this.nextPromise.resolutionFunc;
+                result.rejectionFunc = this.nextPromise.rejectionFunc;
+                result.nextPromise = this.nextPromise.nextPromise;
+              } else if(result.status === Promise.STATUS.FULFILLED) {
+                this.nextPromise._resolve(result.value)
+              } else { // Promise.STATUS.REJECTED
+                this.nextPromise._reject(result.value);
+              }
+            } else {
+              this.nextPromise._resolve(result);
+            }
           }
         } catch (e) {
           if(this.nextPromise) {
@@ -249,10 +264,21 @@ const Promise = class {
       if(this.rejectionFunc === null) {
         log(`_excuteCallBack call is not validate : ${this.status}`);
       } else {
-        this.rejectionFunc(this.value);
+        let result = undefined;
+        try {
+          result = this.rejectionFunc(this.value);
+          if(this.nextPromise) {
+            this.nextPromise._resolve(result);
+          }
+        } catch (e) {
+          try{
+            this.nextPromise._reject(e);
+          } catch (err) {
+            throw e;
+          }
+        }
         this.resolutionFunc = null;
         this.rejectionFunc = null;
-        this.value = undefined;
       }
     }
     this._requested = false;

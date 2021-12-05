@@ -5,7 +5,7 @@
   "main": "index.js",
   "debug" : false,
   "promise" : {
-    "interval" : 1000
+    "interval" : 1
   },
   "scripts": {
     "prepublish": "node build",

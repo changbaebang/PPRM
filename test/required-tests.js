@@ -363,50 +363,108 @@ describe('required-tests', function () {
         //false
         //resolve
       });
-      /*it('Chaining', function(done) {
+      it('Chaining - 1', function(done) {
         Promise.resolve('foo')
-          // 1. Receive "foo", concatenate "bar" to it, and resolve that to the next then
           .then(function(string) {
-            console.log(`Receive "foo" : ${string}`);
+            assert(string === 'foo');
             return new Promise(function(resolve, reject) {
-              setTimeout(function() {
                 string += 'bar';
-                console.log(`concatenate "bar" : ${string}`);
                 resolve(string);
-              }, 1);
             });
           })
-          // 2. receive "foobar", register a callback function to work on that string
-          // and print it to the console, but not before returning the unworked on
-          // string to the next then
           .then(function(string) {
-            console.log(`receive "foobar" "bar" : ${string}`);
-            setTimeout(function() {
-              string += 'baz';
-              console.log(`register a callback : ${string}`);
-              console.log(string); // foobarbaz
-            }, 1)
+            assert(string === 'foobar');
+            string += 'baz';
             return string;
           })
-          // 3. print helpful messages about how the code in this section will be run
-          // before the string is actually processed by the mocked asynchronous code in the
-          // previous then block.
           .then(function(string) {
-            console.log(`print helpful messages : ${string}`);
-            console.log("Last Then:  oops... didn't bother to instantiate and return " +
-                        "a promise in the prior then so the sequence may be a bit " +
-                        "surprising");
-
-            // Note that `string` will not have the 'baz' bit of it at this point. This
-            // is because we mocked that to happen asynchronously with a setTimeout function
-            console.log(string); // foobar
+            assert(string === 'foobarbaz');
+            done();
           });
-
-        // logs, in order:
-        // Last Then: oops... didn't bother to instantiate and return a promise in the prior then so the sequence may be a bit surprising
-        // foobar
-        // foobarbaz
-      });*/
+      });
+      it('Chaining - 2', function(done) {
+        Promise.resolve('foo')
+          .then(function(string) {
+            assert(string === 'foo');
+            return new Promise(function(resolve, reject) {
+                string += 'bar';
+                reject(string);
+            });
+          })
+          .then(function(string) {
+            done(new Error("not called"));
+            string += 'baz';
+            return string;
+          }, function(reason) {
+            assert(reason === 'foobar');
+            return reason + 'baz';
+          })
+          .then(function(string) {
+            assert(string === 'foobarbaz');
+            done();
+          });
+      });
+      it('Chaining - 3', function(done) {
+        Promise.resolve('foo')
+          .then(function(string) {
+            assert(string === 'foo');
+            return new Promise(function(resolve, reject) {
+                string += 'bar';
+                reject(string);
+            });
+          })
+          .then(function(string) {
+            done(new Error("not called"));
+            string += 'baz';
+            return string;
+          }, function(message) {
+            assert(message === 'foobar');
+            throw new Error('Test');
+            return message + 'baz';
+          })
+          .then(function(string) {
+            done(new Error("not called"));
+          }, function(reason) {
+            assert(reason.toString() === 'Error: Test');
+            done();
+          });
+      });
+      it('Chaining - 4', function(done) {
+        let step = 0;
+        Promise.resolve('foo')
+        .then(function(string) {
+          assert(string === 'foo');
+          assert(step === 1);
+          step++;
+          return new Promise(function(resolve, reject) {
+            setTimeout(function() {
+              string += 'bar';
+              assert(step === 2)
+              step++;
+              resolve(string);
+            }, 1);
+          });
+        })
+        .then(function(string) {
+          assert(string === 'foobar');
+          assert(step === 3);
+          step++;
+          setTimeout(function() {
+            string += 'baz';
+            assert(string === 'foobarbaz');
+            assert(step === 5);
+            done()
+            step++;
+          }, 10)
+          return string;
+        })
+        .then(function(string) {
+          assert(string === 'foobar');
+          assert(step === 4);
+          step++;
+        });
+        step++;
+      });
     });
     describe('Promise.prototype.catch', function () {
       it('type of Promise.prototype.catch', function () {
