@@ -1,6 +1,6 @@
-// Promise core
-import { isFunction } from './util.js'
-import { shouldBeRundWithFunction } from './error.js';
+// const
+const { isFunction, log, getRandName } = require('./util');
+const { shouldBeRundWithFunction } = require('./error');
 
 // privates
 /**
@@ -31,11 +31,17 @@ const Promise = class {
     this.value = null;
     this.resolutionFunc = null; // call on resolved
     this.rejectionFunc = null; // call on rejected
+    this.excutor = excutor;
+    this._name = 'PROMISE-' + getRandName();
+    if(excutor === Promise._defaultExcutor) {
+      log(`Promise(${this._toString()}) has default excutor`);
+      return; // prevent run defaultExcutor
+    }
     try {
       excutor(this._resolve.bind(this), this._reject.bind(this));
     } catch (e) {
-      //console.log(`excutor have exception ${e.toString()}`);
-      //console.log(`Promise ${this._toString()}`);
+      log(`excutor have exception ${e.toString()}`);
+      log(`Promise ${this._toString()}`);
       if(this.status !== STATUS.FULFILLED) {
         this._reject(e);
       }
@@ -49,13 +55,13 @@ const Promise = class {
    * @return {Promise} A Promise that is resolved with the given value, or the promise passed as value, if the value was a promise object.
    */
   static resolve = (value) => {
-    //console.log(`resolve : ${value}`);
+    log(`resolve : ${value}`);
     if(Promise._isPromiseObject(value) === true) {
-      //console.log('cast object ' + value._toString());
+      log('cast object ' + value._toString());
       return value;
     }
     if(Promise._isThenable(value) === true) {
-      //console.log(`thenable : ${typeof value['then']} ${value['then']} `);
+      log(`thenable : ${typeof value['then']} ${value['then']} `);
       return new Promise(value['then']);
     }
     let promise = new Promise(Promise._defaultExcutor);
@@ -69,7 +75,7 @@ const Promise = class {
    * @return {Promise} A Promise that is rejected with the given reason.
    */
   static reject = (reason) => {
-    //console.log(`reject : ${reason}`);
+    log(`reject : ${reason}`);
     let _promise = new Promise(Promise._defaultExcutor);
     _promise._reject(reason);
     return _promise;
@@ -82,20 +88,33 @@ const Promise = class {
    * @return {any} Once a Promise is fulfilled or rejected, the respective handler function (onFulfilled or onRejected) will be called asynchronously (scheduled in the current thread loop)
    */
   then(onFulfilled, onRejected) {
-    console.log(`then : ${onFulfilled} / ${onRejected}`);
+    // this.resolutionFunc = onFulfilled;
+    // this.rejectionFunc = onRejected;
+    // return new Promise((resolve, reject) =>{
+    //   if(this.status === STATUS.PENDING) {
+    //     log('PENDING with then');
+    //   } else if(this.status === STATUS.FULFILLED) {
+    //     log(`then FULFILLED with then ${this.value}`);
+    //     this._requestCallback();
+    //   } else { // STATUS.REJECTED
+    //     log(`then REJECTED with then ${this.value}`);
+    //     this._requestCallback();
+    //   }
+    // });
+    log(`then(${this._toString()}) : ${onFulfilled} / ${onRejected}`);
     this.resolutionFunc = onFulfilled;
     this.rejectionFunc = onRejected;
 
     if(this.status === STATUS.PENDING) {
-      console.log('PENDING with then');
+      log('PENDING with then');
       return this;
     }
     else if(this.status === STATUS.FULFILLED) {
-      console.log(`then FULFILLED with then ${this.value}`);
+      log(`then FULFILLED with then ${this.value}`);
       this._requestCallback();
-      return this;
+      return Promise._copy(this);
     } else { // STATUS.REJECTED
-      //console.log(`then REJECTED with then ${this.value}`);
+      log(`then REJECTED with then ${this.value}`);
       this._requestCallback();
       return this;
     }
@@ -108,16 +127,26 @@ const Promise = class {
   static _isThenable = (obj) => {
     return typeof obj === 'object' && obj['then'] && typeof obj['then'] === `function`;
   }
+  static _copy(promise) {
+    if(Promise._isPromiseObject(promise) === false) {
+      return null;
+    }
+    let _promise = new Promise(Promise._defaultExcutor);
+    _promise.status = promise.status;
+    _promise.value = promise.value;
+    _promise.excutor = promise.excutor;
+    return _promise;
+  }
 
   _toString() {
-    return '[Promise] status : ' + this.status + ' value : ' + this.value;
+    return '[Promise(' +this._name + ')] status : ' + this.status + ' value : ' + this.value;
   }
   /**
    * The resove method for excuter of Constructor
    * @param {any} value - Argument to be resolved by this Promise. Can also be a Promise or a thenable to resolve.
    */
   _resolve(value) {
-    //console.log(`_resolve : ${value}`);
+    log(`_resolve : ${value}`);
     this.status = STATUS.FULFILLED;
     this.value = value;
     this._requestCallback();
@@ -128,7 +157,7 @@ const Promise = class {
    * @param {any} reason - Reason why this Promise rejected.
    */
   _reject(reason) {
-    //console.log(`_reject : ${reason}`);
+    log(`_reject : ${reason}`);
     this.status = STATUS.REJECTED;
     this.value = reason;
     this._requestCallback();
@@ -137,7 +166,7 @@ const Promise = class {
    * The trigger for call on resolved or call on rejected
    */
   _requestCallback() {
-    //console.log(`_requestCallback is called`);
+    log(`_requestCallback(${this._toString()}) is called`);
     setTimeout(function() {
       this._excuteCallBack();
     }.bind(this), Promise._asyncInterval);
@@ -147,12 +176,12 @@ const Promise = class {
    * call on resolved or call on rejected
    */
   _excuteCallBack() {
-    //console.log(`_excuteCallBack is called ${this.status}`);
+    log(`_excuteCallBack(${this._toString()}) is called ${this.status}`);
     if(this.status === STATUS.PENDING) {
-      //console.log(`_excuteCallBack call is not validate : ${this.status}`);
+      log(`_excuteCallBack call is not validate : ${this.status}`);
     } else if(this.status === STATUS.FULFILLED) {
       if(this.resolutionFunc === null) {
-        //console.log(`_excuteCallBack call is not validate : ${this.status}`);
+        log(`_excuteCallBack call is not validate : ${this.status}`);
       } else {
         this.resolutionFunc(this.value);
         this.resolutionFunc = null;
@@ -160,7 +189,7 @@ const Promise = class {
       }
     } else {  // STATUS.REJECTED
       if(this.rejectionFunc === null) {
-        //console.log(`_excuteCallBack call is not validate : ${this.status}`);
+        log(`_excuteCallBack call is not validate : ${this.status}`);
       } else {
         this.rejectionFunc(this.value);
         this.resolutionFunc = null;
@@ -170,4 +199,4 @@ const Promise = class {
   }
 }
 
-export default Promise;
+module.exports =  Promise;

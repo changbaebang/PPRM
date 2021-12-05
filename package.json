@@ -2,8 +2,8 @@
   "name": "pprm",
   "version": "1.0.0",
   "description": "Study for Promise",
-  "type": "module",
   "main": "index.js",
+  "debug" : false,
   "scripts": {
     "prepublish": "node build",
     "test-required": "mocha test/required-tests.js --timeout 30000 --slow 999999"

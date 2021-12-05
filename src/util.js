@@ -1,4 +1,5 @@
 // const
+const DEBUG = require('../package.json').debug || false;
 const OBJECT_TYPE_NAME = 'object';
 const FUNCTION_TYPE_NAME = 'function';
 
@@ -35,10 +36,13 @@ const typeErrorValidator = validatorBuilderWithTypeofNameAndPrototypeName(FUNCTI
 const isObject = isSomething(objectVaildator);
 const isFunction = isSomething(functionValidator);
 const isTypeError = isSomething(typeErrorValidator);
+const log = DEBUG == true ? console.log : () => {};
+const getRandName = DEBUG == true ? () => Math.random().toString(36).substr(2,11) : () => {}; // for debug
 
-
-export {
+module.exports = {
   isObject,
   isFunction,
   isTypeError,
+  log,
+  getRandName,
 };

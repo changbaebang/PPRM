@@ -1,4 +1,3 @@
 // Promise core
-import Promise from './core.js';
-
-export default Promise;
+const Promise = require('./core');
+module.exports =  Promise;

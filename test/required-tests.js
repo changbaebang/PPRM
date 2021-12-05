@@ -1,6 +1,6 @@
 // from https://github.com/then/promise/blob/master/test/resolver-tests.js
-import assert from 'better-assert';
-import Promise from '../index.js';
+const assert = require('better-assert');
+const Promise = require('../index.js');
 
 let sentinel = {};
 let promise = new Promise(function (resolve) {
@@ -215,6 +215,55 @@ describe('required-tests', function () {
           assert(reason.toString() === 'Error: Error!');
           done();
         });
+      });
+      it('Then cast', function(done) {
+        let checkSequence = 0;
+        const p1 = new Promise((resolve, reject) => {resolve()});
+        const p2 = p1.then(value => {
+          assert(checkSequence !== 0);
+          done();
+        }, reason => {
+          console.log('error')
+          done(new Error("not called"));
+        });
+        checkSequence++;
+        assert(p1 !== p2)
+        //false
+        //resolve
+      });
+      it('small chain - 1', function(done) {
+        let checkSequence = 0;
+        const p1 = new Promise((resolve, reject) => {resolve()});
+        const p2 = p1.then(value => {
+          assert(checkSequence !== 0);
+          checkSequence++;
+        }, reason => {
+          done(new Error("not called"));
+        });
+        const p3 = p2.then(value => {
+          assert(checkSequence !== 1);
+          done();
+        }, reason => {
+          done(new Error("not called"));
+        });
+        checkSequence++;
+      });
+      it('Async', function(done) {
+        let checkSequence = 0;
+        const p1 = new Promise((resolve, reject) => {
+          setTimeout(resolve, 100);
+        });
+        const p2 = p1.then(value => {
+          assert(checkSequence !== 0);
+          done();
+        }, reason => {
+          console.log('error')
+          done(new Error("not called"));
+        });
+        checkSequence++;
+        assert(p1 !== p2)
+        //false
+        //resolve
       });
       it('Chaining', function(done) {
         Promise.resolve('foo')
