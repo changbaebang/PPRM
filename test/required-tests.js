@@ -340,7 +340,6 @@ describe('required-tests', function () {
           assert(checkSequence !== 0);
           done();
         }, reason => {
-          console.log('error')
           done(new Error("not called"));
         });
         checkSequence++;
@@ -478,6 +477,36 @@ describe('required-tests', function () {
           // expected output: Uh-oh!
           assert(error === 'Uh-oh!');
           done();
+        });
+      });
+      it('Using and chaining the catch method', function(done) {
+        var p1 = new Promise(function(resolve, reject) {
+          resolve('Success');
+        });
+        p1.then(function(value) {
+          // "Success!"
+          assert(value == 'Success');
+          throw new Error('oh, no!');
+        }).catch(function(e) {
+           // "oh, no!"
+          assert(e.message === 'oh, no!');
+        }).then(function(result){
+          assert(result === undefined);
+        }, function () {
+          done(new Error("not called"));
+        });
+        // The following behaves the same as above
+        p1.then(function(value) {
+          //"Success!"
+          assert(value == 'Success');
+          return Promise.reject('oh, no!');
+        }).catch(function(e) {
+          // "oh, no!"
+          assert(e === 'oh, no!');
+        }).then(function(){
+          done();
+        }, function () {
+          done(new Error("not called"));
         });
       });
     });

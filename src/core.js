@@ -17,6 +17,7 @@ const Promise = class {
     }
     this.status = Promise.STATUS.PENDING; // status of promise pending - fullfiled - rejected
     this.value = null;  // value of excutor - this value would be update when _resolve or _reject is called.
+    this.chains = [];
     this.resolutionFunc = null;   // call on resolved from then
     this.rejectionFunc = null;    // call on rejected from then
     this.excutor = excutor;
@@ -26,7 +27,7 @@ const Promise = class {
     }
 
     log(`Crate Promise(${this._toString()})`);
-    if(excutor === Promise._defaultExcutor) {
+    if(excutor === Promise._nullFunction) {
       log(`Promise(${this._toString()}) has default excutor`);
       return; // prevent run defaultExcutor
     }
@@ -63,7 +64,7 @@ const Promise = class {
       return new Promise(value['then']);
     }
     log(`resolve with ${value}`);
-    let promise = new Promise(Promise._defaultExcutor);
+    let promise = new Promise(Promise._nullFunction);
     promise._resolve(value);
     return promise;
   }
@@ -75,7 +76,7 @@ const Promise = class {
    */
   static reject = (reason) => {
     log(`reject with ${reason}`);
-    let _promise = new Promise(Promise._defaultExcutor);
+    let _promise = new Promise(Promise._nullFunction);
     _promise._reject(reason);
     return _promise;
   }
@@ -87,25 +88,16 @@ const Promise = class {
    * @return {any} Once a Promise is fulfilled or rejected, the respective handler function (onFulfilled or onRejected) will be called asynchronously (scheduled in the current thread loop)
    */
   then(onFulfilled, onRejected) {
-    // this.resolutionFunc = onFulfilled;
-    // this.rejectionFunc = onRejected;
-    // return new Promise((resolve, reject) =>{
-    //   if(this.status === Promise.STATUS.PENDING) {
-    //     log('PENDING with then');
-    //   } else if(this.status === Promise.STATUS.FULFILLED) {
-    //     log(`then FULFILLED with then ${this.value}`);
-    //     this._requestCallback();
-    //   } else { // Promise.STATUS.REJECTED
-    //     log(`then REJECTED with then ${this.value}`);
-    //     this._requestCallback();
-    //   }
-    // });
     log(`then(${this._toString()}) : ${onFulfilled} / ${onRejected}`);
-    this.resolutionFunc = onFulfilled;
-    this.rejectionFunc = onRejected;
     const next = Promise._create();
     this.nextPromise = next;
-    log(`then(${this._toString()}) : current : ${this._toString()} nextPromise : ${this.nextPromise._toString()}`);
+    let chain = {
+      resolutionFunc: onFulfilled,
+      rejectionFunc: onRejected,
+      nextPromise: next
+    }
+    this.chains.push(chain);
+    log(`then(${this._toString()}) : current : ${this._toString()} nextPromise : ${chain.nextPromise._toString()}`);
 
     if(this.status === Promise.STATUS.PENDING) {
       log(`then(${this._toString()}) : PENDING`);
@@ -119,7 +111,14 @@ const Promise = class {
     }
     return next;
   }
-
+  /**
+   * The catch() method returns a Promise and deals with rejected cases only
+   * @param {function} onRejected - A Function called when the Promise is rejected
+   */
+  catch(onRejected) {
+    log(`catch(${this._toString()}) : ${onRejected}`);
+    return this.then(Promise._nullFunction, onRejected);
+  }
   // privates
   /**
    * Promise is in one of these states
@@ -139,7 +138,7 @@ const Promise = class {
    * Null excutoer for Promise
    * @readonly
    */
-  static _defaultExcutor = () => {};
+  static _nullFunction = () => {};
   /**
    * Async job interval
    * this value from package.json - promise/interval
@@ -165,7 +164,7 @@ const Promise = class {
    * @return {Promise} duplication of obj
    */
   static _create = () => {
-    return new Promise(Promise._defaultExcutor);
+    return new Promise(Promise._nullFunction);
   }
 
   /**
@@ -227,59 +226,63 @@ const Promise = class {
     if(this.status === Promise.STATUS.PENDING) {
       log(`_excuteCallBack call is not validate : ${this.status}`);
     } else if(this.status === Promise.STATUS.FULFILLED) {
-      if(this.resolutionFunc === null) {
-        log(`_excuteCallBack call is not validate : ${this.status}`);
-      } else {
-        let result = undefined;
-        try {
-          result = this.resolutionFunc(this.value);
-          if(this.nextPromise) {
-            log(`_excuteCallBack - current : ${this._toString()} nextPromise : ${this.nextPromise._toString()}`);
-            if(Promise._isPromiseObject(result) === true) {
-              if(result.status === Promise.STATUS.PENDING) {
-                // re-link result and nextPromise
-                result.resolutionFunc = this.nextPromise.resolutionFunc;
-                result.rejectionFunc = this.nextPromise.rejectionFunc;
-                result.nextPromise = this.nextPromise.nextPromise;
-              } else if(result.status === Promise.STATUS.FULFILLED) {
-                this.nextPromise._resolve(result.value)
-              } else { // Promise.STATUS.REJECTED
-                this.nextPromise._reject(result.value);
+      const _self = this;
+      this.chains.forEach(chain => {
+        if(chain.resolutionFunc === null) {
+          log(`_excuteCallBack call is not validate : ${_self.status}`);
+        } else {
+          let result = undefined;
+          try {
+            result = chain.resolutionFunc(_self.value);
+            if(chain.nextPromise) {
+              log(`_excuteCallBack - current : ${_self._toString()} nextPromise : ${chain.nextPromise._toString()}`);
+              if(Promise._isPromiseObject(result) === true) {
+                if(result.status === Promise.STATUS.PENDING) {
+                  // re-link result and nextPromise
+                  result.chains = chain.nextPromise.chains;
+                } else if(result.status === Promise.STATUS.FULFILLED) {
+                  chain.nextPromise._resolve(result.value)
+                } else { // Promise.STATUS.REJECTED
+                  chain.nextPromise._reject(result.value);
+                }
+              } else {
+                chain.nextPromise._resolve(result);
               }
-            } else {
-              this.nextPromise._resolve(result);
+            }
+          } catch (e) {
+            if(chain.nextPromise) {
+              result = e;
+              chain.nextPromise._reject(e);
             }
           }
-        } catch (e) {
-          if(this.nextPromise) {
-            result = e;
-            this.nextPromise._reject(e);
-          }
+          log(`previoud : ${_self.value} current : ${result}`);
+          chain.resolutionFunc = null;
+          chain.rejectionFunc = null;
         }
-        log(`previoud : ${this.value} current : ${result}`);
-        this.resolutionFunc = null;
-        this.rejectionFunc = null;
-      }
+      });
     } else {  // Promise.STATUS.REJECTED
-      if(this.rejectionFunc === null) {
-        log(`_excuteCallBack call is not validate : ${this.status}`);
-      } else {
-        let result = undefined;
-        try {
-          result = this.rejectionFunc(this.value);
-          if(this.nextPromise) {
-            this.nextPromise._resolve(result);
+      const _self = this;
+      this.chains.forEach(chain => {
+        if(chain.rejectionFunc === null) {
+          log(`_excuteCallBack call is not validate : ${this.status}`);
+        } else {
+          let result = undefined;
+          try {
+            result = chain.rejectionFunc(_self.value);
+            if(chain.nextPromise) {
+              chain.nextPromise._resolve(result);
+            }
+          } catch (e) {
+            try{
+              chain.nextPromise._reject(e);
+            } catch (err) {
+              throw e;
+            }
           }
-        } catch (e) {
-          try{
-            this.nextPromise._reject(e);
-          } catch (err) {
-            throw e;
-          }
+          chain.resolutionFunc = null;
+          chain.rejectionFunc = null;
         }
-        this.resolutionFunc = null;
-        this.rejectionFunc = null;
-      }
+      });
     }
     this._requested = false;
   }
