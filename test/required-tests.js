@@ -49,18 +49,25 @@ describe('required-tests', function () {
       it('type of Promise.all', function () {
         assert(typeof Promise.all === 'function');
       });
-      it('demo', function(done) {
+      it('demo - 1', function(done) {
         const promise1 = Promise.resolve(3);
         const promise2 = 42;
-        const promise3 = new Promise((resolve, reject) => {
-          setTimeout(resolve, 100, 'foo');
-        });
-        Promise.all([promise1, promise2, promise3]).then((values) => {
-          // expected output: Array [3, 42, "foo"]
-          const expected = [3, 42, "foo"];
+        Promise.all([promise1, promise2]).then((values) => {
+          // expected output: Array [3, 42]
+          const expected = [3, 42];
           assert(values.length === expected.length);
           assert(values.every((val, index) => val === expected[index]));
           done();
+        });
+      });
+      it('demo - 2', function(done) {
+        const promise1 = Promise.reject(3);
+        const promise2 = 42;
+        Promise.all([promise1, promise2]).then((values) => {
+          done(new Error("not called"));
+        }, (message) => {
+          assert(message === 3);
+          done()
         });
       });
     });
@@ -80,7 +87,7 @@ describe('required-tests', function () {
       });
       it('Resolving an array', function(done) {
         const resolves = [1,2,3];
-        var p = Promise.resolve([1,2,3]);
+        let p = Promise.resolve([1,2,3]);
         p.then(function(v) {
           assert(v.length === resolves.length);
           assert(v.every((val, index) => val === resolves[index]));
@@ -88,9 +95,9 @@ describe('required-tests', function () {
         });
       });
       it('Resolving another Promise', function(done) {
-        var original = Promise.resolve(33);
-        var cast = Promise.resolve(original);
-        var checkOrder = 0;
+        let original = Promise.resolve(33);
+        let cast = Promise.resolve(original);
+        let checkOrder = 0;
         cast.then(function(value) {
           assert(value === 33);
           assert(checkOrder === 1);
@@ -104,7 +111,7 @@ describe('required-tests', function () {
       });
       it('Resolving thenables and throwing Errors - 1', function(done) {
         // Resolving a thenable object
-        var p1 = Promise.resolve({
+        let p1 = Promise.resolve({
           then: function(onFulfill, onReject) {
             onFulfill('fulfilled!');
           }
@@ -122,12 +129,12 @@ describe('required-tests', function () {
       it('Resolving thenables and throwing Errors - 2', function(done) {
         // Thenable throws before callback
         // Promise rejects
-        var thenable = { then: function(resolve) {
+        let thenable = { then: function(resolve) {
           throw new TypeError('Throwing');
           resolve('Resolving');
         }};
 
-        var p2 = Promise.resolve(thenable);
+        let p2 = Promise.resolve(thenable);
         p2.then(function(v) {
           // not called
           done(new Error("not called"));
@@ -139,12 +146,12 @@ describe('required-tests', function () {
       it('Resolving thenables and throwing Errors - 3', function(done) {
         // Thenable throws after callback
         // Promise resolves
-        var thenable = { then: function(resolve) {
+        let thenable = { then: function(resolve) {
           resolve('Resolving');
           throw new TypeError('Throwing');
         }};
 
-        var p3 = Promise.resolve(thenable);
+        let p3 = Promise.resolve(thenable);
         p3.then(function(v) {
           // "Resolving"
           assert(v === 'Resolving');
@@ -194,7 +201,7 @@ describe('required-tests', function () {
         });
       });
       it('Using the then method - 1', function(done) {
-        var p1 = new Promise((resolve, reject) => {
+        let p1 = new Promise((resolve, reject) => {
           resolve('Success!');
         });
         p1.then(value => {
@@ -205,7 +212,7 @@ describe('required-tests', function () {
         });
       });
       it('Using the then method - 2', function(done) {
-        var p1 = new Promise((resolve, reject) => {
+        let p1 = new Promise((resolve, reject) => {
           reject(new Error("Error!"));
         });
         p1.then(value => {
@@ -480,7 +487,7 @@ describe('required-tests', function () {
         });
       });
       it('Using and chaining the catch method', function(done) {
-        var p1 = new Promise(function(resolve, reject) {
+        let p1 = new Promise(function(resolve, reject) {
           resolve('Success');
         });
         p1.then(function(value) {
@@ -507,6 +514,82 @@ describe('required-tests', function () {
           done();
         }, function () {
           done(new Error("not called"));
+        });
+      });
+      it('Gotchas when throwing errors', function (done) {
+        // Throwing an error will call the catch method most of the time
+        let p1 = new Promise(function(resolve, reject) {
+          throw new Error('Uh-oh!');
+        });
+    
+        p1.catch(function(e) {
+          // "Uh-oh!"
+          assert(e.message === 'Uh-oh!');
+        });
+    
+        // // Errors thrown inside asynchronous functions will act like uncaught errors
+        // let p2 = new Promise(function(resolve, reject) {
+        //   setTimeout(function() {
+        //     throw new Error('Uncaught Exception!');
+        //   }, 1000);
+        // });
+    
+        // p2.catch(function(e) {
+        //   // This is never called
+        //   done(new Error("not called"));
+        // });
+       
+        // Errors thrown after resolve is called will be silenced
+        let p3 = new Promise(function(resolve, reject) {
+          resolve();
+          throw new Error('Silenced Exception!');
+        });
+    
+        let p4 = p3.catch(function(e) {
+          // This is never called
+          done(new Error("not called"));
+        });
+
+        p4.then(() => {
+          done();
+        });
+      });
+      it('If it is resolved - 1', function (done) {
+        //Create a promise which would not call onReject
+        let p1 = Promise.resolve("calling next");
+    
+        let p2 = p1.catch(function (reason) {
+            //This is never called
+            done(new Error("not called"));
+        });
+    
+        p2.then(function (value) {
+            /* calling next */
+            assert(value === 'calling next');
+            done();
+        }, function (reason) {
+            done(new Error("not called"));
+        });
+      });
+      it('If it is resolved - 2', function (done) {
+        //Create a promise which would not call onReject
+        let p11 = new Promise(function(resolve, reject) {
+          setTimeout(function() {
+            resolve("calling next");
+          }, 1000);
+        });
+    
+        let p2 = p11.catch(function (reason) {
+            //This is never called
+            done(new Error("not called"));
+        });
+    
+        p2.then(function (value) {
+            /* calling next */
+            assert(value === 'calling next');
+            done();
+        }, function (reason) {
+            done(new Error("not called"));
         });
       });
     });

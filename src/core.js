@@ -1,6 +1,6 @@
 // const
 const { isFunction, log, getRandName, isDebug } = require('./util');
-const { shouldBeRundWithFunction, shouldBePromiseForArgument } = require('./error');
+const { shouldBeRundWithFunction, shouldBeUseWithArray } = require('./error');
 const INTERVAL = require('../package.json').promise.interval;
 
 // privates
@@ -45,8 +45,52 @@ const Promise = class {
       this._reject(e);
     }
   }
+  /**
+   * The Promise.all() method takes an iterable of promises as an input, and returns a single Promise that resolves to an array of the results of the input promises. 
+   * @param {array} iterable - An iterable object such as an Array.
+   * @return {Promise} A Promise that is resolved with the given value, or the promise passed as value, if the value was a promise object.
+   */
+  static all = (iterable) => {
+    if(Promise._isArray(iterable) === false) {
+      shouldBeUseWithArray();
+    }
 
-  
+    const rejected = iterable.find((iter, index) => {
+      console.log(`Promise._isPromiseObject(iter) : ${Promise._isPromiseObject(iter)}`);
+      console.log(`iter.status : ${iter.status}`);
+      console.log(`Promise.REJECTED : ${Promise.STATUS.REJECTED}`);
+      console.log(Promise._isPromiseObject(iter) === true && iter.status === Promise.STATUS.REJECTED)
+      return Promise._isPromiseObject(iter) === true &&
+      iter.status === Promise.STATUS.REJECTED;
+    });
+    console.log(`rejected : ${rejected}`);
+    if(rejected !== undefined) {
+      return rejected;
+    }
+
+    let promise = Promise.resolve();
+    let results = [];
+    for(let i in iterable) {
+      const iter = iterable[i];
+      console.log(`Promise._isPromiseObject(iter) : ${Promise._isPromiseObject(iter)}`);
+      console.log(`iter.status : ${iter.status}`);
+      if(Promise._isPromiseObject(iter) === false) {
+        promise = promise.then(() => {
+          results.push(iter);
+          return results;
+        });
+      } else { 
+        promise = promise.then(() => {
+          return iter;
+        }).then((result) => {
+          results.push(result);
+          return results;
+        });
+      }
+    }
+
+    return promise;
+  }
   /**
    * The Promise.resolve() method returns a Promise object that is resolved with a given value.
    * @param {any} value - Argument to be resolved by this Promise. Can also be a Promise or a thenable to resolve.
@@ -85,7 +129,7 @@ const Promise = class {
    * The then() method returns a Promise. It takes up to two arguments: callback functions for the success and failure cases of the Promise.
    * @param {function} onFulfilled - (Optional) A Function called if the Promise is fulfilled.
    * @param {function} onRejected - (Optional) A Function called if the Promise is rejected. 
-   * @return {any} Once a Promise is fulfilled or rejected, the respective handler function (onFulfilled or onRejected) will be called asynchronously (scheduled in the current thread loop)
+   * @return {promise} Once a Promise is fulfilled or rejected, the respective handler function (onFulfilled or onRejected) will be called asynchronously (scheduled in the current thread loop)
    */
   then(onFulfilled, onRejected) {
     log(`then(${this._toString()}) : ${onFulfilled} / ${onRejected}`);
@@ -114,12 +158,23 @@ const Promise = class {
   /**
    * The catch() method returns a Promise and deals with rejected cases only
    * @param {function} onRejected - A Function called when the Promise is rejected
+   * @return {promise} 
    */
   catch(onRejected) {
     log(`catch(${this._toString()}) : ${onRejected}`);
-    return this.then(Promise._nullFunction, onRejected);
+    return this.then((value) => value, onRejected);
   }
-  // privates
+
+  /**
+   * The finally() method returns a Promise. 
+   * @param {function} onFinally - A Function called when the Promise is settled
+   * @return {promise} 
+   */
+  finally(onFinally) {
+    log(`finally(${this._toString()}) : ${onFinally}`);
+    return this.then(onFinally, onFinally);
+  }
+  // privates 
   /**
    * Promise is in one of these states
    * @readonly
@@ -159,6 +214,7 @@ const Promise = class {
   static _isThenable = (obj) => {
     return typeof obj === 'object' && obj['then'] && typeof obj['then'] === `function`;
   }
+  static _isArray = (promises) => Array.isArray(promises)
   /**
    * create promise object
    * @return {Promise} duplication of obj
