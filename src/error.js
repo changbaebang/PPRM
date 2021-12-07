@@ -10,7 +10,6 @@ const raiseException = (errorType) => (errorMessage) => {
 };
 const rasieTypeError = (message) => raiseException(TypeError);
 
-
 // implemetations
 const shouldBeUseWithNew = rasieTypeError(PROMISE_SHOULD_BE_USE_WITH_NEW);
 const shouldBeRundWithFunction = rasieTypeError(PROMISE_SHOULD_BE_WORKING_WITH_FUNCTION);

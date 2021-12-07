@@ -1,0 +1,467 @@
+//consts
+const INTERVAL = 1;
+const DEBUG = false;
+
+const OBJECT_TYPE_NAME = 'object';
+const FUNCTION_TYPE_NAME = 'function';
+const TYPE_ERROR_PROTOTYPE_NAME = 'TypeError';
+
+// abstraction
+const validatorBuilder = (validator) => {
+  return (something) => validator(something);
+}
+
+const validatorBuilderWithTypeofName = (type) => {
+  const typeVaildator = (something) => typeof something === type;
+  return validatorBuilder(typeVaildator);
+};
+const validatorBuilderWithTypeofNameAndPrototypeName = (type, name) => {
+  const typeAndProtoTypeNameValidator = (something) => typeof something === type && something.prototype.name === name;
+  return validatorBuilder(typeAndProtoTypeNameValidator);
+};
+
+const isSomething = (vaildator) => {
+  return (something) => {
+    return vaildator(something);
+  }
+};
+
+// implementation
+const objectVaildator = validatorBuilderWithTypeofName(OBJECT_TYPE_NAME);
+const functionValidator = validatorBuilderWithTypeofName(FUNCTION_TYPE_NAME);
+const typeErrorValidator = validatorBuilderWithTypeofNameAndPrototypeName(FUNCTION_TYPE_NAME, TYPE_ERROR_PROTOTYPE_NAME)
+
+const isObject = isSomething(objectVaildator);
+const isFunction = isSomething(functionValidator);
+const isTypeError = isSomething(typeErrorValidator);
+const isDebug = DEBUG;
+const log = DEBUG == true ? console.log : () => {};
+const getRandName = DEBUG == true ? () => Math.random().toString(36).substr(2,11) : () => {}; // for debug
+
+
+// const
+const PROMISE_SHOULD_BE_USE_WITH_NEW = 'Promises must be constructed via new';
+const PROMISE_SHOULD_BE_WORKING_WITH_FUNCTION = 'Promise constructor\'s argument is not a function';
+const OBJECT_IS_NOT_PROMISE = "Promise should be passed for this function";
+const ARRAY_SHOULD_BE_USE_WITH_ALL = "Argument is not iterable"
+
+// abstraction
+const raiseException = (errorType) => (errorMessage) => {
+    throw new errorType(errorMessage);
+};
+const rasieTypeError = (message) => raiseException(TypeError);
+
+// implemetations
+const shouldBeUseWithNew = rasieTypeError(PROMISE_SHOULD_BE_USE_WITH_NEW);
+const shouldBeRundWithFunction = rasieTypeError(PROMISE_SHOULD_BE_WORKING_WITH_FUNCTION);
+const shouldBePromiseForArgument = rasieTypeError(OBJECT_IS_NOT_PROMISE);
+const shouldBeUseWithArray = rasieTypeError(ARRAY_SHOULD_BE_USE_WITH_ALL);
+
+
+// privates
+
+
+// Promise core
+const Promise = class {
+  /**
+   * @param {function} excutor - A function to be executed by the constructor, during the process of constructing the new Promise object. The executor is custom code that ties an outcome to a promise. You, the programmer, write the executor.
+   */
+  constructor(excutor) {
+    if(isFunction(excutor) === false) {
+      shouldBeRundWithFunction();
+    }
+    this.status = Promise.STATUS.PENDING; // status of promise pending - fullfiled - rejected
+    this.value = null;  // value of excutor - this value would be update when _resolve or _reject is called.
+    this.chains = [];
+    this.excutor = excutor;
+    this.doNotRaiseErrorForExcutore = false;
+
+    if(isDebug === true) {  // when debug mode, we can make name for promises
+      this._name = 'PROMISE-' + getRandName();  // please do not use _name beyond _toString()
+    }
+
+    log(`Crate Promise(${this._toString()})`);
+    if(excutor === Promise._nullFunction) {
+      log(`Promise(${this._toString()}) has default excutor`);
+      return; // prevent run defaultExcutor
+    }
+
+    // excute code immediately and bind _resove and _reejct function to excutor
+    try {
+      excutor(this._resolve.bind(this), this._reject.bind(this));
+    } catch (e) {
+      // if any exception call reject
+      // but the resolve is already called, do not call reject.
+      if(this.status === Promise.STATUS.FULFILLED || this.doNotRaiseErrorForExcutore === true) {
+        return;
+      }
+      log(`Promise ${this._toString()} excutor have exception ${e.toString()}`);
+      this._reject(e);
+    }
+  }
+  /**
+   * The Promise.all() method takes an iterable of promises as an input, and returns a single Promise that resolves to an array of the results of the input promises. 
+   * @param {array} iterable - An iterable object such as an Array.
+   * @return {Promise} A Promise that is resolved with the given value, or the promise passed as value, if the value was a promise object.
+   */
+  static all = (iterable) => {
+    if(Promise._isArray(iterable) === false) {
+      log(`all required array)`);
+      shouldBeUseWithArray();
+      return;
+    }
+
+    const rejected = iterable.find((iter, index) => {
+      return Promise._isPromiseObject(iter) === true &&
+      iter.status === Promise.STATUS.REJECTED;
+    });
+    if(rejected !== undefined) {
+      log(`all is rejected : ${rejected}`);
+      return rejected;
+    }
+
+    let promise = Promise.resolve();
+    let results = [];
+    for(let i in iterable) {
+      const iter = iterable[i];
+      log(`loop ${i} => ${iter}`);
+
+      if(Promise._isPromiseObject(iter) === false) {
+        promise = promise.then(() => {
+          results.push(iter);
+          log(`all result : ${iter}`);
+          return results;
+        }, (message) => {
+          log(`all reject : ${message}`);
+          throw message;
+        });
+      } else { 
+        promise = promise.then(() => {
+          return iter;
+        }).then((result) => {
+          results.push(result);
+          log(`all result : ${result}`);
+          return results;
+        }, (message) => {
+          log(`all reject : ${message}`);
+          throw message;
+        });
+      }
+    }
+    return promise;
+  }
+  /**
+   * The Promise.resolve() method returns a Promise object that is resolved with a given value.
+   * @param {any} value - Argument to be resolved by this Promise. Can also be a Promise or a thenable to resolve.
+   * @return {Promise} A Promise that is resolved with the given value, or the promise passed as value, if the value was a promise object.
+   */
+  static resolve = (value) => {
+    // resolve with Promise - cast
+    if(Promise._isPromiseObject(value) === true) {
+      log('resolve with casting ' + value._toString());
+      return value;
+    }
+    // resolve with thenable - object must have 'then' property and the value should be function.
+    if(Promise._isThenable(value) === true) {
+      log(`resolve with thenable : ${typeof value['then']} ${value['then']} `);
+      return new Promise(value['then']);
+    }
+    log(`resolve with ${value}`);
+    let promise = new Promise(Promise._nullFunction);
+    promise.__resolve(value);
+    return promise;
+  }
+
+  /**
+   * The Promise.reject() method returns a Promise object that is rejected with a given reason.
+   * @param {any} reason - Reason why this Promise rejected.
+   * @return {Promise} A Promise that is rejected with the given reason.
+   */
+  static reject = (reason) => {
+    log(`reject with ${reason}`);
+    let _promise = new Promise(Promise._nullFunction);
+    _promise._reject(reason);
+    return _promise;
+  }
+
+  /**
+   * The then() method returns a Promise. It takes up to two arguments: callback functions for the success and failure cases of the Promise.
+   * @param {function} onFulfilled - (Optional) A Function called if the Promise is fulfilled.
+   * @param {function} onRejected - (Optional) A Function called if the Promise is rejected. 
+   * @return {promise} Once a Promise is fulfilled or rejected, the respective handler function (onFulfilled or onRejected) will be called asynchronously (scheduled in the current thread loop)
+   */
+  then(onFulfilled, onRejected) {
+    log(`then(${this._toString()}) : ${onFulfilled} / ${onRejected}`);
+    const next = Promise._create();
+    let chain = {
+      resolutionFunc: onFulfilled,
+      rejectionFunc: onRejected,
+      nextPromise: next
+    }
+    this.chains.push(chain);
+    log(`then(${this._toString()}) : current : ${this._toString()} nextPromise : ${chain.nextPromise._toString()}`);
+
+    if(this.status === Promise.STATUS.PENDING) {
+      log(`then(${this._toString()}) : PENDING`);
+    }
+    else if(this.status === Promise.STATUS.FULFILLED) {
+      log(`then(${this._toString()}) : FULFILLED with ${this.value}`);
+      this._requestCallback();
+    } else { // Promise.STATUS.REJECTED
+      log(`then(${this._toString()}) : REJECTED ${this.value}`);
+      this._requestCallback();
+    }
+    return next;
+  }
+  /**
+   * The catch() method returns a Promise and deals with rejected cases only
+   * @param {function} onRejected - A Function called when the Promise is rejected
+   * @return {promise} 
+   */
+  catch(onRejected) {
+    log(`catch(${this._toString()}) : ${onRejected}`);
+    return this.then((value) => value, onRejected);
+  }
+
+  /**
+   * The finally() method returns a Promise. 
+   * @param {function} onFinally - A Function called when the Promise is settled
+   * @return {promise} 
+   */
+  finally(onFinally) {
+    log(`finally(${this._toString()}) : ${onFinally}`);
+    return this.then(onFinally, onFinally);
+  }
+  // privates 
+  /**
+   * Promise is in one of these states
+   * @readonly
+   * @enum {number}
+   */
+  static STATUS = Object.freeze({
+    /** pending: initial state, neither fulfilled nor rejected. */
+    PENDING: 0,
+    /** fulfilled: meaning that the operation was completed successfully. */
+    FULFILLED: 1,
+    /** rejected: meaning that the operation failed. */
+    REJECTED: 2
+  });
+
+  /**
+   * Null excutoer for Promise
+   * @readonly
+   */
+  static _nullFunction = () => {};
+  /**
+   * Async job interval
+   * this value from package.json - promise/interval
+   * @readonly
+   */
+  static _asyncInterval = INTERVAL;
+  /**
+   * Check the object is promise or not
+   * @param {any} obj - object to check
+   * @return {boolean} if promise ture, if not false
+   */
+  static _isPromiseObject = (obj) => obj instanceof Promise
+  /**
+   * Check the object is thenable or not
+   * @param {any} obj - object to check
+   * @return {boolean} if thenable ture, if not false
+   */
+  static _isThenable = (obj) => {
+    return obj !== null && typeof obj === 'object' && obj['then'] && typeof obj['then'] === `function`;
+  }
+  static _isArray = (promises) => Array.isArray(promises)
+  /**
+   * create promise object
+   * @return {Promise} duplication of obj
+   */
+  static _create = () => {
+    return new Promise(Promise._nullFunction);
+  }
+
+  /**
+   * function for debug
+   * please use with only log
+   * @return {String} Information about this(Promise)
+   */
+  _toString() {
+    const name = isDebug === true ? '(' + this._name + ')' : '';
+    return '[Promise' + name + '] status : ' + this.status + ' value : ' + this.value;
+  }
+  /**
+   * The resove method for excuter of Constructor
+   * @param {any} value - Argument to be resolved by this Promise. Can also be a Promise or a thenable to resolve.
+   */
+  _resolve(value) {
+    if(this.status !== Promise.STATUS.PENDING)
+      return;
+    
+    log(`_resolve${this._toString()} : ${value}`);
+    // resolve with Promise - cast
+    let _value = value;
+    if(Promise._isPromiseObject(_value) === true) {
+      log('resolve with casting ' + _value._toString());
+      log(`this.chains : ${this.chains.length}`);
+      if(this.chains.length) {
+        // // this -> chains
+        // // this -> value -> chains
+        _value.chains = this.chains.map(chain => chain);
+
+        this.chains = [{
+          resolutionFunc: Promise._nullFunction,
+          rejectionFunc: Promise._nullFunction,
+          nextPromise: _value
+        }];
+        this.status = Promise.STATUS.FULFILLED;
+        return;
+      } else {
+        _value.chains = [{
+          resolutionFunc: (result) => result,
+          rejectionFunc: null,
+          nextPromise: this
+        }];
+        this.doNotRaiseErrorForExcutore = true;
+        return;
+      }
+    }
+    // resolve with thenable - object must have 'then' property and the value should be function.
+    if(Promise._isThenable(_value) === true) {
+      log(`resolve with thenable : ${typeof value['then']} ${value['then']} `);
+      let _thenable = new Promise(_value['then']);
+      log(`this.chains : ${this.chains.length}`);
+      if(this.chains.length) {
+        _thenable.chains = this.chains.map(chain => chain);
+        this.chains = [{
+          resolutionFunc: Promise._nullFunction,
+          rejectionFunc: null,
+          nextPromise: _thenable
+        }];
+        this.status = Promise.STATUS.FULFILLED;
+        return;
+      } else {
+        _thenable.chains = [{
+          resolutionFunc: (result) => result,
+          rejectionFunc: null,
+          nextPromise: this
+        }];
+        this.doNotRaiseErrorForExcutore = true;
+        return;
+      }
+    }
+    this.__resolve(_value);
+  }
+
+  /**
+   * The common resove method
+   * @param {any} value - Argument to be resolved by this Promise. Can also be a Promise or a thenable to resolve.
+   */
+   __resolve(value) {    
+    log(`__resolve : ${value}`);
+    this.status = Promise.STATUS.FULFILLED;
+    this.value = value;
+    this._requestCallback();
+  }
+
+  /**
+   * The reject method for excuter of Constructor
+   * @param {any} reason - Reason why this Promise rejected.
+   */
+  _reject(reason) {
+    if(this.status !== Promise.STATUS.PENDING)
+      return;
+
+    log(`_reject : ${reason}`);
+    this.status = Promise.STATUS.REJECTED;
+    this.value = reason;
+    this._requestCallback();
+  }
+  /**
+   * The trigger for call on resolved or call on rejected
+   * only _resolve & _reject & then call call this function
+   * just use timer for assyn job
+   */
+  _requestCallback() {
+    if(this._requested === true)
+      return;
+    
+    this._requested = true;
+    log(`_requestCallback(${this._toString()}) is called`);
+    setTimeout(function() {
+      this._excuteCallBack();
+    }.bind(this), Promise._asyncInterval);
+  }
+  /**
+   * call on resolved or call on rejected
+   */
+  _excuteCallBack() {
+    log(`_excuteCallBack(${this._toString()}) is called ${this.status}`);
+    if(this.status === Promise.STATUS.PENDING) {
+      log(`_excuteCallBack call is not validate : ${this.status}`);
+    } else if(this.status === Promise.STATUS.FULFILLED) {
+      const _self = this;
+      log(`chains\' length: ${this.chains.length}`);
+      this.chains.forEach(chain => {
+        if(chain.resolutionFunc === null) {
+          log(`_excuteCallBack call is not validate : ${_self.status}`);
+        } else {
+          let result = undefined;
+          try {
+            result = chain.resolutionFunc(_self.value);
+            log(`_excuteCallBack : ${result}`);
+            
+
+            if(chain.nextPromise) {
+              log(`_excuteCallBack - current : ${_self._toString()} nextPromise : ${chain.nextPromise._toString()}`);
+              if(Promise._isPromiseObject(result) === true) {
+                if(result.status === Promise.STATUS.PENDING) {
+                  // re-link result and nextPromise
+                  result.chains = chain.nextPromise.chains;
+                } else if(result.status === Promise.STATUS.FULFILLED) {
+                  chain.nextPromise._resolve(result.value)
+                } else { // Promise.STATUS.REJECTED
+                  chain.nextPromise._reject(result.value);
+                }
+              } else {
+                chain.nextPromise._resolve(result);
+              }
+            }
+          } catch (e) {
+            if(chain.nextPromise) {
+              result = e;
+              chain.nextPromise._reject(e);
+            }
+          }
+          log(`previoud : ${_self.value} current : ${result}`);
+          chain.resolutionFunc = null;
+          chain.rejectionFunc = null;
+        }
+      });
+    } else {  // Promise.STATUS.REJECTED
+      const _self = this;
+      this.chains.forEach(chain => {
+        if(chain.rejectionFunc === null) {
+          log(`_excuteCallBack call is not validate : ${this.status}`);
+        } else {
+          let result = undefined;
+          try {
+            result = chain.rejectionFunc(_self.value);
+            if(chain.nextPromise) {
+              chain.nextPromise._resolve(result);
+            }
+          } catch (e) {
+            try{
+              chain.nextPromise._reject(e);
+            } catch (err) {
+              throw e;
+            }
+          }
+          chain.resolutionFunc = null;
+          chain.rejectionFunc = null;
+        }
+      });
+    }
+    this._requested = false;
+  }
+}
