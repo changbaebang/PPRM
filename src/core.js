@@ -18,9 +18,8 @@ const Promise = class {
     this.status = Promise.STATUS.PENDING; // status of promise pending - fullfiled - rejected
     this.value = null;  // value of excutor - this value would be update when _resolve or _reject is called.
     this.chains = [];
-    this.resolutionFunc = null;   // call on resolved from then
-    this.rejectionFunc = null;    // call on rejected from then
     this.excutor = excutor;
+    this.doNotRaiseErrorForExcutore = false;
 
     if(isDebug === true) {  // when debug mode, we can make name for promises
       this._name = 'PROMISE-' + getRandName();  // please do not use _name beyond _toString()
@@ -38,7 +37,7 @@ const Promise = class {
     } catch (e) {
       // if any exception call reject
       // but the resolve is already called, do not call reject.
-      if(this.status === Promise.STATUS.FULFILLED) {
+      if(this.status === Promise.STATUS.FULFILLED || this.doNotRaiseErrorForExcutore === true) {
         return;
       }
       log(`Promise ${this._toString()} excutor have exception ${e.toString()}`);
@@ -71,6 +70,7 @@ const Promise = class {
     for(let i in iterable) {
       const iter = iterable[i];
       log(`loop ${i} => ${iter}`);
+
       if(Promise._isPromiseObject(iter) === false) {
         promise = promise.then(() => {
           results.push(iter);
@@ -81,16 +81,16 @@ const Promise = class {
           throw message;
         });
       } else { 
-          promise = promise.then(() => {
-            return iter;
-          }).then((result) => {
-            results.push(result);
-            log(`all result : ${result}`);
-            return results;
-          }, (message) => {
-            log(`all reject : ${message}`);
-            throw message;
-          });
+        promise = promise.then(() => {
+          return iter;
+        }).then((result) => {
+          results.push(result);
+          log(`all result : ${result}`);
+          return results;
+        }, (message) => {
+          log(`all reject : ${message}`);
+          throw message;
+        });
       }
     }
     return promise;
@@ -113,7 +113,7 @@ const Promise = class {
     }
     log(`resolve with ${value}`);
     let promise = new Promise(Promise._nullFunction);
-    promise._resolve(value);
+    promise.__resolve(value);
     return promise;
   }
 
@@ -138,7 +138,6 @@ const Promise = class {
   then(onFulfilled, onRejected) {
     log(`then(${this._toString()}) : ${onFulfilled} / ${onRejected}`);
     const next = Promise._create();
-    this.nextPromise = next;
     let chain = {
       resolutionFunc: onFulfilled,
       rejectionFunc: onRejected,
@@ -216,7 +215,7 @@ const Promise = class {
    * @return {boolean} if thenable ture, if not false
    */
   static _isThenable = (obj) => {
-    return typeof obj === 'object' && obj['then'] && typeof obj['then'] === `function`;
+    return obj !== null && typeof obj === 'object' && obj['then'] && typeof obj['then'] === `function`;
   }
   static _isArray = (promises) => Array.isArray(promises)
   /**
@@ -243,8 +242,68 @@ const Promise = class {
   _resolve(value) {
     if(this.status !== Promise.STATUS.PENDING)
       return;
+    
+    log(`_resolve${this._toString()} : ${value}`);
+    // resolve with Promise - cast
+    let _value = value;
+    if(Promise._isPromiseObject(_value) === true) {
+      log('resolve with casting ' + _value._toString());
+      log(`this.chains : ${this.chains.length}`);
+      if(this.chains.length) {
+        // // this -> chains
+        // // this -> value -> chains
+        _value.chains = this.chains.map(chain => chain);
 
-    log(`_resolve : ${value}`);
+        this.chains = [{
+          resolutionFunc: Promise._nullFunction,
+          rejectionFunc: Promise._nullFunction,
+          nextPromise: _value
+        }];
+        this.status = Promise.STATUS.FULFILLED;
+        return;
+      } else {
+        _value.chains = [{
+          resolutionFunc: (result) => result,
+          rejectionFunc: null,
+          nextPromise: this
+        }];
+        this.doNotRaiseErrorForExcutore = true;
+        return;
+      }
+    }
+    // resolve with thenable - object must have 'then' property and the value should be function.
+    if(Promise._isThenable(_value) === true) {
+      log(`resolve with thenable : ${typeof value['then']} ${value['then']} `);
+      let _thenable = new Promise(_value['then']);
+      log(`this.chains : ${this.chains.length}`);
+      if(this.chains.length) {
+        _thenable.chains = this.chains.map(chain => chain);
+        this.chains = [{
+          resolutionFunc: Promise._nullFunction,
+          rejectionFunc: null,
+          nextPromise: _thenable
+        }];
+        this.status = Promise.STATUS.FULFILLED;
+        return;
+      } else {
+        _thenable.chains = [{
+          resolutionFunc: (result) => result,
+          rejectionFunc: null,
+          nextPromise: this
+        }];
+        this.doNotRaiseErrorForExcutore = true;
+        return;
+      }
+    }
+    this.__resolve(_value);
+  }
+
+  /**
+   * The common resove method
+   * @param {any} value - Argument to be resolved by this Promise. Can also be a Promise or a thenable to resolve.
+   */
+   __resolve(value) {    
+    log(`__resolve : ${value}`);
     this.status = Promise.STATUS.FULFILLED;
     this.value = value;
     this._requestCallback();
@@ -287,6 +346,7 @@ const Promise = class {
       log(`_excuteCallBack call is not validate : ${this.status}`);
     } else if(this.status === Promise.STATUS.FULFILLED) {
       const _self = this;
+      log(`chains\' length: ${this.chains.length}`);
       this.chains.forEach(chain => {
         if(chain.resolutionFunc === null) {
           log(`_excuteCallBack call is not validate : ${_self.status}`);
@@ -294,6 +354,9 @@ const Promise = class {
           let result = undefined;
           try {
             result = chain.resolutionFunc(_self.value);
+            log(`_excuteCallBack : ${result}`);
+            
+
             if(chain.nextPromise) {
               log(`_excuteCallBack - current : ${_self._toString()} nextPromise : ${chain.nextPromise._toString()}`);
               if(Promise._isPromiseObject(result) === true) {

@@ -10,7 +10,8 @@
   "scripts": {
     "prepublish": "node build",
     "test-required": "mocha test/required-tests.js --timeout 30000 --slow 999999",
-    "test-single": "mocha test/single-test.js --timeout 300.00 --slow 999999"
+    "test-resolver": "mocha test/resolver-tests.js --timeout 30000 --slow 999999",
+    "test" : "mocha --timeout 10000"
   },
   "repository": {
     "type": "git",
