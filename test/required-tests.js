@@ -70,6 +70,46 @@ describe('required-tests', function () {
           done()
         });
       });
+      it('demo - 3', function(done) {
+        const promise1 = Promise.resolve(3);
+        const promise2 = 42;
+        const promise3 = new Promise((resolve, reject) => {
+          setTimeout(resolve, 100, 'foo');
+        });
+        Promise.all([promise1, promise2, promise3]).then((values) => {
+          // expected output: Array [3, 42, "foo"]
+          const expected = [3, 42, "foo"];
+          assert(values.length === expected.length);
+          assert(values.every((val, index) => val === expected[index]));
+          done();
+        });
+      });
+      it('demo - 4', function(done) {
+        const promise1 = Promise.resolve(3);
+        const promise2 = 42;
+        const promise3 = new Promise((resolve, reject) => {
+          setTimeout(reject, 100, 'foo');
+        });
+        Promise.all([promise1, promise2, promise3]).then((values) => {
+          done(new Error("not called"));
+        }, (message) => {
+          assert(message === 'foo');
+          done();
+        });
+      });
+      it('demo - 5', function(done) {
+        const promise1 = Promise.resolve(3);
+        const promise2 = 42;
+        const promise3 = new Promise((resolve, reject) => {
+          setTimeout(reject, 100, 'foo');
+        });
+        Promise.all([promise1, promise3, promise2]).then((values) => {
+          done(new Error("not called"));
+        }, (message) => {
+          assert(message === 'foo');
+          done();
+        });
+      });
     });
     describe('Promise.resolve', function () {
       it('type of Promise.resolve', function () {

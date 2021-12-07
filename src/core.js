@@ -52,19 +52,17 @@ const Promise = class {
    */
   static all = (iterable) => {
     if(Promise._isArray(iterable) === false) {
+      log(`all required array)`);
       shouldBeUseWithArray();
+      return;
     }
 
     const rejected = iterable.find((iter, index) => {
-      console.log(`Promise._isPromiseObject(iter) : ${Promise._isPromiseObject(iter)}`);
-      console.log(`iter.status : ${iter.status}`);
-      console.log(`Promise.REJECTED : ${Promise.STATUS.REJECTED}`);
-      console.log(Promise._isPromiseObject(iter) === true && iter.status === Promise.STATUS.REJECTED)
       return Promise._isPromiseObject(iter) === true &&
       iter.status === Promise.STATUS.REJECTED;
     });
-    console.log(`rejected : ${rejected}`);
     if(rejected !== undefined) {
+      log(`all is rejected : ${rejected}`);
       return rejected;
     }
 
@@ -72,23 +70,29 @@ const Promise = class {
     let results = [];
     for(let i in iterable) {
       const iter = iterable[i];
-      console.log(`Promise._isPromiseObject(iter) : ${Promise._isPromiseObject(iter)}`);
-      console.log(`iter.status : ${iter.status}`);
+      log(`loop ${i} => ${iter}`);
       if(Promise._isPromiseObject(iter) === false) {
         promise = promise.then(() => {
           results.push(iter);
+          log(`all result : ${iter}`);
           return results;
+        }, (message) => {
+          log(`all reject : ${message}`);
+          throw message;
         });
       } else { 
-        promise = promise.then(() => {
-          return iter;
-        }).then((result) => {
-          results.push(result);
-          return results;
-        });
+          promise = promise.then(() => {
+            return iter;
+          }).then((result) => {
+            results.push(result);
+            log(`all result : ${result}`);
+            return results;
+          }, (message) => {
+            log(`all reject : ${message}`);
+            throw message;
+          });
       }
     }
-
     return promise;
   }
   /**
