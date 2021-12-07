@@ -2,11 +2,6 @@
 const assert = require('better-assert');
 const Promise = require('../index.js');
 
-let sentinel = {};
-let promise = new Promise(function (resolve) {
-  resolve(sentinel);
-});
-
 let _it = it;
 describe('required-tests', function () {
   describe('spec test', function () {
