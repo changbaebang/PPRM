@@ -32,6 +32,10 @@ These are condition for runing code from other thens.
 * add codes with then - other thens.
 * code from prevous then determine end
 
+For this call chains
+* Promise oject has `chains`(array).
+* The Promise run with `chains`(like linked list) - if done, chains promise would be triggered.
+
 # Supported Specs
 * new Promise(executor)
 * Promise.all(iterable) (supposed that iterable is the type of Array<Promise>)

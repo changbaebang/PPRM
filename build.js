@@ -5,9 +5,22 @@ const fs = require('fs');
 const INTERVAL = require('./package.json').promise.interval;
 const DEBUG = require('./package.json').debug || false;
 const dest = 'promise-for-browser-out.js';
-const utilJs = 'src/util.js';
-const errorJs = 'src/error.js';
-const coreJs = 'src/core.js';
+const utilJs = {    
+  name: 'src/util.js',
+  from: 2,
+  to: 38
+};
+const errorJs = {
+  name : 'src/error.js',
+  from: 0,
+  to: 18
+};
+const coreJs = {
+  name: 'src/core.js',
+  from: 5,
+  to: 392
+};
+const jsFiles = [utilJs, errorJs, coreJs];
 
 const messagePrinter = (message) => console.error(message);
 const doubleSpace = '\n\n';
@@ -59,64 +72,55 @@ const writeConsts = deleteFile.then(() => {
   });
 }, messagePrinter);
 
-
 const copyUtilJS = writeConsts.then(() => {
   return new Promise((resolve, reject) => {
-    // copy src/util.js
-    // line 3 to 42
-    fs.readFile(utilJs, (err, data) => {
+    fs.readFile(utilJs.name, (err, data) => {
       if (err) throw err;
-      console.log(`read ${utilJs}`);
-      const toWrite = data.toString().split('\n').slice(2, 38).join('\n');
+      console.log(`read ${utilJs.name}`);
+      const toWrite = data.toString().split('\n').slice(utilJs.from, utilJs.to).join('\n');
       resolve(toWrite);
     });
   });
 }, messagePrinter).then((data) => {
   fs.appendFile(dest, data + doubleSpace, (err) => {
     if (err) throw err;
-    console.log(`write ${utilJs}`);
+    console.log(`write ${utilJs.name}`);
   });
 }, messagePrinter);
 
 
 const copyErrorJS = copyUtilJS.then(() => {
   return new Promise((resolve, reject) => {
-    // copy src/error.js
-    // line 0 to 18
-    fs.readFile(errorJs, (err, data) => {
+    fs.readFile(errorJs.name, (err, data) => {
       if (err) throw err;
-      console.log(`read ${errorJs}`);
-      const toWrite = data.toString().split('\n').slice(0, 18).join('\n');
+      console.log(`read ${errorJs.name}`);
+      const toWrite = data.toString().split('\n').slice(errorJs.from, errorJs.to).join('\n');
       resolve(toWrite);
     });
   });
 }, messagePrinter).then((data) => {
   fs.appendFile(dest, data + doubleSpace, (err) => {
     if (err) throw err;
-    console.log(`write ${errorJs}`);
+    console.log(`write ${errorJs.name}`);
   });
 }, messagePrinter);
 
 
 const copyCoreJS = copyErrorJS.then(() => {
   return new Promise((resolve, reject) => {
-    // copy src/core.js
-    // line 5 to 413
-    fs.readFile(coreJs, (err, data) => {
+    fs.readFile(coreJs.name, (err, data) => {
       if (err) throw err;
-      console.log(`read ${coreJs}`);
-      const toWrite = data.toString().split('\n').slice(5, 412).join('\n');
+      console.log(`read ${coreJs.name}`);
+      const toWrite = data.toString().split('\n').slice(coreJs.from, coreJs.to).join('\n');
       resolve(toWrite);
     });
   });
 }, messagePrinter).then((data) => {
   fs.appendFile(dest, data, (err) => {
     if (err) throw err;
-    console.log(`write ${coreJs}`);
+    console.log(`write ${coreJs.name}`);
   });
 }, messagePrinter);
-
-
 
 
 

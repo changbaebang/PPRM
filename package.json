@@ -1,6 +1,6 @@
 {
   "name": "pprm",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Study for Promise",
   "main": "index.js",
   "debug" : false,
