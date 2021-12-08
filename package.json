@@ -8,7 +8,7 @@
     "interval" : 1
   },
   "scripts": {
-    "prepublish": "node build",
+    "build-for-browser-js": "node build",
     "test-required": "mocha test/required-tests.js --timeout 30000 --slow 999999",
     "test-resolver": "mocha test/resolver-tests.js --timeout 30000 --slow 999999",
     "test" : "mocha --timeout 10000"

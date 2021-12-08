@@ -1,6 +1,12 @@
 # PPRM
 promise study
 
+# How to use
+* make the js file for browser : `npm run build-for-browser-js` -> `promise-for-browser-out.js`
+* test : `npm run test`
+* Set How many time delay on package.json - promise > interval as ms
+* Set Debug mode on package.json - debus as boolean
+
 # Purpose
 * How to run async. - with timer??
 
